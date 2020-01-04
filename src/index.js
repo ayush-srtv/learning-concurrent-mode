@@ -1,16 +1,65 @@
-import React from "react";
+import React, { useState, useTransition, Suspense } from "react";
 import ReactDOM from "react-dom";
-
+import { fetchProfileData } from "./services/api.service";
 import "./styles.css";
 
+function getNextId(id) {
+  return id === 3 ? 0 : id + 1;
+}
+
+const initialResource = fetchProfileData(0);
+
 function App() {
+  const [resource, setResource] = useState(initialResource);
+  const [startTransition, isPending] = useTransition({
+    timeoutMs: 3000
+  });
   return (
-    <div className="App">
-      <h1>Hello CodeSandbox</h1>
-      <h2>Start editing to see some magic happen!</h2>
-    </div>
+    <>
+      <button
+        disabled={isPending}
+        onClick={() => {
+          startTransition(() => {
+            console.log("here");
+            const nextUserId = getNextId(resource.userId);
+            setResource(fetchProfileData(nextUserId));
+          });
+        }}
+      >
+        Next
+      </button>
+      {isPending ? " Loading..." : null}
+      <ProfilePage resource={resource} />
+    </>
+  );
+}
+
+function ProfilePage({ resource }) {
+  return (
+    <Suspense fallback={<h1>Loading profile....</h1>}>
+      <ProfileDetails resource={resource} />
+      <Suspense fallback={<h1>Loading posts....</h1>}>
+        <ProfileTimeline resource={resource} />
+      </Suspense>
+    </Suspense>
+  );
+}
+
+function ProfileDetails({ resource }) {
+  const user = resource.user.read();
+  return <h1>{user.name}</h1>;
+}
+
+function ProfileTimeline({ resource }) {
+  const posts = resource.posts.read();
+  return (
+    <ul>
+      {posts.map(post => (
+        <li key={post.id}>{post.text}</li>
+      ))}
+    </ul>
   );
 }
 
 const rootElement = document.getElementById("root");
-ReactDOM.render(<App />, rootElement);
+ReactDOM.createRoot(rootElement).render(<App />);
